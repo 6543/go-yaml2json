@@ -1,6 +1,8 @@
 package yaml2json
 
 import (
+	"bytes"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -59,5 +61,49 @@ pipeline:
 		result, err := Covnert([]byte(tc.yaml))
 		assert.NoError(t, err)
 		assert.EqualValues(t, tc.json, string(result))
+	}
+}
+
+func TestStreamConverter(t *testing.T) {
+	tests := []struct {
+		yaml string
+		json string
+	}{{
+		yaml: `---`,
+		json: "null\n",
+	}, {
+		yaml: `values:
+  - int: 5
+  - float: 6.8523015e+5
+  - none: null
+`,
+		json: `{"values":[{"int":5},{"float":685230.15},{"none":null}]}` + "\n",
+	}}
+
+	for _, tc := range tests {
+		r := bytes.NewReader([]byte(tc.yaml))
+		w := new(strings.Builder)
+		err := StreamConverter(r, w)
+		assert.NoError(t, err)
+		assert.EqualValues(t, tc.json, w.String())
+	}
+}
+
+func TestErrors(t *testing.T) {
+	tests := []struct {
+		yaml  string
+		error string
+	}{{
+		yaml:  ``,
+		error: `EOF`,
+	}}
+
+	for _, tc := range tests {
+		r := bytes.NewReader([]byte(tc.yaml))
+		w := new(strings.Builder)
+		err := StreamConverter(r, w)
+		if assert.Error(t, err) {
+			assert.EqualValues(t, tc.error, err.Error())
+		}
 	}
 }
