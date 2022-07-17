@@ -9,6 +9,37 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Covnert YAML bytes to JSON bytes
+func Covnert(data []byte) ([]byte, error) {
+	m := &yaml.Node{}
+	if err := yaml.Unmarshal(data, m); err != nil {
+		return nil, err
+	}
+
+	d, err := toJSON(m)
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(d)
+}
+
+func StreamConverter(r io.Reader, w io.Writer) error {
+	decoder := yaml.NewDecoder(r)
+	encoder := json.NewEncoder(w)
+	m := &yaml.Node{}
+
+	if err := decoder.Decode(m); err != nil {
+		return err
+	}
+
+	d, err := toJSON(m)
+	if err != nil {
+		return err
+	}
+
+	return encoder.Encode(d)
+}
+
 // toJSON convert gopkg.in/yaml.v3 nodes to object that can be serialized as json
 // fmt.Sprint() with default formatting is used to convert the key to a string key.
 func toJSON(node *yaml.Node) (interface{}, error) {
@@ -60,35 +91,6 @@ func toJSON(node *yaml.Node) (interface{}, error) {
 	}
 
 	return nil, fmt.Errorf("do not support yaml node kind '%v'", node.Kind)
-}
-
-// ToJSON converts YAML bytes to JSON
-func ToJSON(data []byte) ([]byte, error) {
-	m := &yaml.Node{}
-	if err := yaml.Unmarshal(data, m); err != nil {
-		return nil, err
-	}
-
-	d, err := toJSON(m)
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(d)
-}
-
-// LoadYmlReaderAsJSON reads from an io.Reader containing YAML and converts it to JSON
-func LoadYmlReaderAsJSON(r io.Reader) (j []byte, err error) {
-	data, err := io.ReadAll(r)
-	if err != nil {
-		return nil, err
-	}
-
-	j, err = ToJSON(data)
-	if err != nil {
-		return nil, err
-	}
-
-	return j, nil
 }
 
 // Source: https://github.com/go-yaml/yaml/blob/3e3283e801afc229479d5fc68aa41df1137b8394/resolve.go#L70-L81

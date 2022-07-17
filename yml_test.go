@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestToJSON(t *testing.T) {
+func TestCovnert(t *testing.T) {
 	tests := []struct {
 		yaml string
 		json string
@@ -56,7 +56,7 @@ pipeline:
 	}}
 
 	for _, tc := range tests {
-		result, err := ToJSON([]byte(tc.yaml))
+		result, err := Covnert([]byte(tc.yaml))
 		assert.NoError(t, err)
 		assert.EqualValues(t, tc.json, string(result))
 	}
