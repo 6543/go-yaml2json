@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCovnert(t *testing.T) {
+func TestConvert(t *testing.T) {
 	tests := []struct {
 		yaml string
 		json string
@@ -58,13 +58,13 @@ pipeline:
 	}}
 
 	for _, tc := range tests {
-		result, err := Covnert([]byte(tc.yaml))
+		result, err := Convert([]byte(tc.yaml))
 		assert.NoError(t, err)
 		assert.EqualValues(t, tc.json, string(result))
 	}
 }
 
-func TestStreamConverter(t *testing.T) {
+func TestStreamConvert(t *testing.T) {
 	tests := []struct {
 		yaml string
 		json string
@@ -83,7 +83,7 @@ func TestStreamConverter(t *testing.T) {
 	for _, tc := range tests {
 		r := bytes.NewReader([]byte(tc.yaml))
 		w := new(strings.Builder)
-		err := StreamConverter(r, w)
+		err := StreamConvert(r, w)
 		assert.NoError(t, err)
 		assert.EqualValues(t, tc.json, w.String())
 	}
@@ -101,7 +101,7 @@ func TestErrors(t *testing.T) {
 	for _, tc := range tests {
 		r := bytes.NewReader([]byte(tc.yaml))
 		w := new(strings.Builder)
-		err := StreamConverter(r, w)
+		err := StreamConvert(r, w)
 		if assert.Error(t, err) {
 			assert.EqualValues(t, tc.error, err.Error())
 		}

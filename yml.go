@@ -9,8 +9,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Covnert YAML bytes to JSON bytes
-func Covnert(data []byte) ([]byte, error) {
+// Convert YAML bytes to JSON bytes
+func Convert(data []byte) ([]byte, error) {
 	m := &yaml.Node{}
 	if err := yaml.Unmarshal(data, m); err != nil {
 		return nil, err
@@ -23,7 +23,8 @@ func Covnert(data []byte) ([]byte, error) {
 	return json.Marshal(d)
 }
 
-func StreamConverter(r io.Reader, w io.Writer) error {
+// StreamConvert convert YAML byte stream to JSON byte stream
+func StreamConvert(r io.Reader, w io.Writer) error {
 	decoder := yaml.NewDecoder(r)
 	encoder := json.NewEncoder(w)
 	m := &yaml.Node{}
