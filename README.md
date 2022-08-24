@@ -19,3 +19,36 @@ go get codeberg.org/6543/go-yaml2json
 yaml2json.Covnert(data []byte) ([]byte, error)
 yaml2json.StreamConverter(r io.Reader, w io.Writer) error
 ```
+
+## example
+
+yaml:
+```yaml
+- name: Jack
+  job: Butcher
+- name: Jill
+  job: Cook
+  obj:
+    empty: false
+    data: |
+      some data 123
+      with new line      
+```
+
+will become json:
+```json
+[
+  {
+    "job": "Butcher",
+    "name": "Jack"
+  },
+  {
+    "job": "Cook",
+    "name": "Jill",
+    "obj": {
+      "data": "some data 123\nwith new line\n",
+      "empty": false
+    }
+  }
+]
+```
