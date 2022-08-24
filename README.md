@@ -16,8 +16,8 @@ go get codeberg.org/6543/go-yaml2json
 ```
 
 ```go
-yaml2json.Covnert(data []byte) ([]byte, error)
-yaml2json.StreamConverter(r io.Reader, w io.Writer) error
+yaml2json.Convert(data []byte) ([]byte, error)
+yaml2json.StreamConvert(r io.Reader, w io.Writer) error
 ```
 
 ## example
