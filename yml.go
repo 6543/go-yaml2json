@@ -16,6 +16,11 @@ func Convert(data []byte) ([]byte, error) {
 		return nil, err
 	}
 
+	return ConvertNode(m)
+}
+
+// ConvertNode convert a gopkg.in/yaml.v3 Node to JSON bytes
+func ConvertNode(m *yaml.Node) ([]byte, error) {
 	d, err := toJSON(m)
 	if err != nil {
 		return nil, err
