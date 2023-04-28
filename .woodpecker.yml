@@ -1,3 +1,7 @@
+when:
+  - branch: main
+  - event: pull_request
+
 pipeline:
   test:
     image: golang:${GO_VERSION}
@@ -9,3 +13,4 @@ matrix:
     - 1.13
     - 1.16
     - 1.18
+    - 1.20
