@@ -10,22 +10,25 @@ import (
 
 func TestConvert(t *testing.T) {
 	tests := []struct {
-		yaml string
-		json string
+		name, yaml, json string
 	}{{
+		name: "map list",
 		yaml: `- name: Jack
 - name: Jill
 `,
 		json: `[{"name":"Jack"},{"name":"Jill"}]`,
 	}, {
+		name: "single item map obj",
 		yaml: `name: Jack`,
 		json: `{"name":"Jack"}`,
 	}, {
+		name: "object as map",
 		yaml: `name: Jack
 job: Butcher
 `,
 		json: `{"job":"Butcher","name":"Jack"}`,
 	}, {
+		name: "object list",
 		yaml: `- name: Jack
   job: Butcher
 - name: Jill
@@ -38,6 +41,7 @@ job: Butcher
 `,
 		json: `[{"job":"Butcher","name":"Jack"},{"job":"Cook","name":"Jill","obj":{"data":"some data 123\nwith new line\n","empty":false}}]`,
 	}, {
+		name: "advanced yaml with alias",
 		yaml: `vars:
   - &node_image 'node:16-alpine'
   - &when_path
@@ -58,20 +62,23 @@ pipeline:
 	}}
 
 	for _, tc := range tests {
-		result, err := Convert([]byte(tc.yaml))
-		assert.NoError(t, err)
-		assert.EqualValues(t, tc.json, string(result))
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := Convert([]byte(tc.yaml))
+			assert.NoError(t, err)
+			assert.EqualValues(t, tc.json, string(result))
+		})
 	}
 }
 
 func TestStreamConvert(t *testing.T) {
 	tests := []struct {
-		yaml string
-		json string
+		name, yaml, json string
 	}{{
+		name: "empty doc",
 		yaml: `---`,
 		json: "null\n",
 	}, {
+		name: "values",
 		yaml: `values:
   - int: 5
   - float: 6.8523015e+5
@@ -81,11 +88,13 @@ func TestStreamConvert(t *testing.T) {
 	}}
 
 	for _, tc := range tests {
-		r := bytes.NewReader([]byte(tc.yaml))
-		w := new(strings.Builder)
-		err := StreamConvert(r, w)
-		assert.NoError(t, err)
-		assert.EqualValues(t, tc.json, w.String())
+		t.Run(tc.name, func(t *testing.T) {
+			r := bytes.NewReader([]byte(tc.yaml))
+			w := new(strings.Builder)
+			err := StreamConvert(r, w)
+			assert.NoError(t, err)
+			assert.EqualValues(t, tc.json, w.String())
+		})
 	}
 }
 
@@ -106,4 +115,8 @@ func TestErrors(t *testing.T) {
 			assert.EqualValues(t, tc.error, err.Error())
 		}
 	}
+
+	// test max depth
+	_, err := toJSON(nil, maxDepth)
+	assert.ErrorIs(t, err, ErrMaxDepth)
 }

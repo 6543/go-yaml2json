@@ -2,11 +2,20 @@ package yaml2json
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
 
 	"gopkg.in/yaml.v3"
+)
+
+const maxDepth uint8 = 100
+
+var (
+	ErrBrokenMappingNode = errors.New("broken mapping node")
+	ErrUnsupportedNode   = errors.New("unsupported yaml node")
+	ErrMaxDepth          = errors.New("max depth reached")
 )
 
 // Convert YAML bytes to JSON bytes
@@ -21,7 +30,7 @@ func Convert(data []byte) ([]byte, error) {
 
 // ConvertNode convert a gopkg.in/yaml.v3 Node to JSON bytes
 func ConvertNode(m *yaml.Node) ([]byte, error) {
-	d, err := toJSON(m)
+	d, err := toJSON(m, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +47,7 @@ func StreamConvert(r io.Reader, w io.Writer) error {
 		return err
 	}
 
-	d, err := toJSON(m)
+	d, err := toJSON(m, 0)
 	if err != nil {
 		return err
 	}
@@ -48,16 +57,21 @@ func StreamConvert(r io.Reader, w io.Writer) error {
 
 // toJSON convert gopkg.in/yaml.v3 nodes to object that can be serialized as json
 // fmt.Sprint() with default formatting is used to convert the key to a string key.
-func toJSON(node *yaml.Node) (interface{}, error) {
+func toJSON(node *yaml.Node, depth uint8) (interface{}, error) {
+	// prevent loop by hardcoded limit
+	if depth == maxDepth {
+		return nil, ErrMaxDepth
+	}
+
 	switch node.Kind {
 	case yaml.DocumentNode:
-		return toJSON(node.Content[0])
+		return toJSON(node.Content[0], depth+1)
 
 	case yaml.SequenceNode:
 		val := make([]interface{}, len(node.Content))
 		var err error
 		for i := range node.Content {
-			if val[i], err = toJSON(node.Content[i]); err != nil {
+			if val[i], err = toJSON(node.Content[i], depth+1); err != nil {
 				return nil, err
 			}
 		}
@@ -65,15 +79,15 @@ func toJSON(node *yaml.Node) (interface{}, error) {
 
 	case yaml.MappingNode:
 		if (len(node.Content) % 2) != 0 {
-			return nil, fmt.Errorf("broken mapping node")
+			return nil, ErrBrokenMappingNode
 		}
 		val := make(map[string]interface{}, len(node.Content)%2)
 		for i := len(node.Content); i > 1; i = i - 2 {
-			k, err := toJSON(node.Content[i-2])
+			k, err := toJSON(node.Content[i-2], depth+1)
 			if err != nil {
 				return nil, err
 			}
-			if val[fmt.Sprint(k)], err = toJSON(node.Content[i-1]); err != nil {
+			if val[fmt.Sprint(k)], err = toJSON(node.Content[i-1], depth+1); err != nil {
 				return nil, err
 			}
 		}
@@ -93,10 +107,10 @@ func toJSON(node *yaml.Node) (interface{}, error) {
 		return node.Value, nil
 
 	case yaml.AliasNode:
-		return toJSON(node.Alias)
+		return toJSON(node.Alias, depth+1)
 	}
 
-	return nil, fmt.Errorf("do not support yaml node kind '%v'", node.Kind)
+	return nil, fmt.Errorf("%w: '%v'", ErrUnsupportedNode, node.Kind)
 }
 
 // Source: https://github.com/go-yaml/yaml/blob/3e3283e801afc229479d5fc68aa41df1137b8394/resolve.go#L70-L81
@@ -105,10 +119,5 @@ const (
 	boolTag  = "!!bool"
 	intTag   = "!!int"
 	floatTag = "!!float"
-	// strTag       = "!!str"       // we dont have to parse it
-	// timestampTag = "!!timestamp" // TODO: do we have to parse this?
-	// seqTag       = "!!seq"       // TODO: do we have to parse this?
-	// mapTag       = "!!map"       // TODO: do we have to parse this?
-	// binaryTag    = "!!binary"    // TODO: do we have to parse this?
 	// mergeTag     = "!!merge"     // TODO: do we have to parse this?
 )
