@@ -20,9 +20,12 @@ yaml2json.Convert(data []byte) ([]byte, error)
 yaml2json.StreamConvert(r io.Reader, w io.Writer) error
 ```
 
-## example
+## Example
+
+[<img src="https://go.dev/images/go-logo-white.svg" alt="Go" height=15> **Playground**](https://go.dev/play/p/fBddDCaucNG)
 
 yaml:
+
 ```yaml
 - name: Jack
   job: Butcher
