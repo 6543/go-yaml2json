@@ -30,7 +30,12 @@ func Convert(data []byte) ([]byte, error) {
 
 // ConvertNode convert a gopkg.in/yaml.v3 Node to JSON bytes
 func ConvertNode(m *yaml.Node) ([]byte, error) {
-	d, err := toJSON(m, 0)
+	n, err := resolveMerges(m)
+	if err != nil {
+		return nil, err
+	}
+
+	d, err := toJSON(n, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -47,12 +52,27 @@ func StreamConvert(r io.Reader, w io.Writer) error {
 		return err
 	}
 
-	d, err := toJSON(m, 0)
+	n, err := resolveMerges(m)
+	if err != nil {
+		return err
+	}
+
+	d, err := toJSON(n, 0)
 	if err != nil {
 		return err
 	}
 
 	return encoder.Encode(d)
+}
+
+// resolveMerges force yaml decoder to resolve map merges
+func resolveMerges(m *yaml.Node) (*yaml.Node, error) {
+	i := new(interface{})
+	if err := m.Decode(i); err != nil {
+		return nil, err
+	}
+	n := new(yaml.Node)
+	return n, n.Encode(i)
 }
 
 // toJSON convert gopkg.in/yaml.v3 nodes to object that can be serialized as json

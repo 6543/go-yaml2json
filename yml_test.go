@@ -59,6 +59,30 @@ pipeline:
       path: *when_path
 `,
 		json: `{"pipeline":{"deps":{"commands":["cd web/","yarn install"],"image":"node:16-alpine","when":{"path":["web/**","some"]}}},"vars":["node:16-alpine",["web/**","some"]]}`,
+	}, {
+		name: "map merging",
+		yaml: `
+variables: &var
+  target: dist
+  recursive: false
+  try: true
+one:
+  <<: *var
+  name: awesome
+two:
+  <<: *var
+  try: false
+`,
+		json: `{"one":{"name":"awesome","recursive":false,"target":"dist","try":true},"two":{"recursive":false,"target":"dist","try":false},"variables":{"recursive":false,"target":"dist","try":true}}`,
+	}, {
+		name: "map merging array",
+		yaml: `one: &one
+  name: awesome
+two: &two
+  try: false
+comb:
+  <<: [*one, *two]`,
+		json: `{"comb":{"name":"awesome","try":false},"one":{"name":"awesome"},"two":{"try":false}}`,
 	}}
 
 	for _, tc := range tests {
