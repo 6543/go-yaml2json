@@ -67,12 +67,7 @@ func StreamConvert(r io.Reader, w io.Writer) error {
 
 // resolveMerges force yaml decoder to resolve map merges
 func resolveMerges(m *yaml.Node) (*yaml.Node, error) {
-	i := new(interface{})
-	if err := m.Decode(i); err != nil {
-		return nil, err
-	}
-	n := new(yaml.Node)
-	return n, n.Encode(i)
+	return m, nil
 }
 
 // toJSON convert gopkg.in/yaml.v3 nodes to object that can be serialized as json
