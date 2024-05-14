@@ -1,8 +1,9 @@
 when:
   - branch: main
+    event: push
   - event: pull_request
 
-pipeline:
+steps:
   test:
     image: golang:${GO_VERSION}
     commands:
