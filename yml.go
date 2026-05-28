@@ -10,7 +10,7 @@ import (
 	"io"
 	"strconv"
 
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v4"
 )
 
 const maxDepth uint8 = 100
@@ -31,7 +31,7 @@ func Convert(data []byte) ([]byte, error) {
 	return ConvertNode(m)
 }
 
-// ConvertNode convert a gopkg.in/yaml.v3 Node to JSON bytes
+// ConvertNode convert a go.yaml.in/yaml/v4 Node to JSON bytes
 func ConvertNode(m *yaml.Node) ([]byte, error) {
 	n, err := resolveMerges(m)
 	if err != nil {
@@ -78,7 +78,7 @@ func resolveMerges(m *yaml.Node) (*yaml.Node, error) {
 	return n, n.Encode(i)
 }
 
-// toJSON convert gopkg.in/yaml.v3 nodes to object that can be serialized as json
+// toJSON convert go.yaml.in/yaml/v4 nodes to object that can be serialized as json
 // fmt.Sprint() with default formatting is used to convert the key to a string key.
 func toJSON(node *yaml.Node, depth uint8) (interface{}, error) {
 	// prevent loop by hardcoded limit
