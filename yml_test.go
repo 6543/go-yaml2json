@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"go.yaml.in/yaml/v4"
 )
 
 func TestConvert(t *testing.T) {
@@ -146,4 +147,99 @@ func TestErrors(t *testing.T) {
 	// test max depth
 	_, err := toJSON(nil, maxDepth)
 	assert.ErrorIs(t, err, ErrMaxDepth)
+}
+
+// TestConvertInvalidYAML covers the yaml.Unmarshal error path in Convert.
+func TestConvertInvalidYAML(t *testing.T) {
+	// unbalanced flow mapping triggers a parser error
+	_, err := Convert([]byte("{key: value, : }"))
+	assert.Error(t, err)
+}
+
+// TestConvertNode covers ConvertNode being called directly (not via Convert).
+func TestConvertNode(t *testing.T) {
+	node := &yaml.Node{}
+	assert.NoError(t, yaml.Unmarshal([]byte("foo: bar\n"), node))
+	out, err := ConvertNode(node)
+	assert.NoError(t, err)
+	assert.EqualValues(t, `{"foo":"bar"}`, string(out))
+}
+
+// TestToJSONDocumentNode covers the yaml.DocumentNode branch of toJSON,
+// reached when toJSON is called on a freshly unmarshaled node (before
+// resolveMerges flattens it).
+func TestToJSONDocumentNode(t *testing.T) {
+	node := &yaml.Node{}
+	assert.NoError(t, yaml.Unmarshal([]byte("answer: 42\n"), node))
+	assert.Equal(t, yaml.DocumentNode, node.Kind)
+	val, err := toJSON(node, 0)
+	assert.NoError(t, err)
+	assert.Equal(t, map[string]interface{}{"answer": int64(42)}, val)
+}
+
+// TestToJSONAliasNode covers the yaml.AliasNode branch of toJSON, reached
+// by handing it an AliasNode directly (resolveMerges normally inlines
+// aliases before toJSON ever sees one).
+func TestToJSONAliasNode(t *testing.T) {
+	target := &yaml.Node{
+		Kind:  yaml.ScalarNode,
+		Tag:   "!!str",
+		Value: "aliased",
+	}
+	alias := &yaml.Node{Kind: yaml.AliasNode, Alias: target}
+	val, err := toJSON(alias, 0)
+	assert.NoError(t, err)
+	assert.Equal(t, "aliased", val)
+}
+
+// TestToJSONBrokenMapping covers the ErrBrokenMappingNode path: a mapping
+// node with an odd number of content entries (key without value).
+func TestToJSONBrokenMapping(t *testing.T) {
+	broken := &yaml.Node{
+		Kind: yaml.MappingNode,
+		Content: []*yaml.Node{
+			{Kind: yaml.ScalarNode, Tag: "!!str", Value: "lonely_key"},
+		},
+	}
+	_, err := toJSON(broken, 0)
+	assert.ErrorIs(t, err, ErrBrokenMappingNode)
+}
+
+// TestToJSONUnsupportedNode covers the ErrUnsupportedNode default branch
+// via a zero-Kind node, which matches none of the switch cases.
+func TestToJSONUnsupportedNode(t *testing.T) {
+	bogus := &yaml.Node{Kind: 0}
+	_, err := toJSON(bogus, 0)
+	assert.ErrorIs(t, err, ErrUnsupportedNode)
+}
+
+// TestToJSONDeepRecursion drives toJSON close to its maxDepth cap with a
+// real nested mapping, ensuring the depth counter increments through every
+// recursive call.
+func TestToJSONDeepRecursion(t *testing.T) {
+	// build "a: a: a: ... : leaf" nested deeper than maxDepth
+	var sb strings.Builder
+	for i := 0; i < int(maxDepth)+10; i++ {
+		sb.WriteString("a:\n")
+		for j := 0; j <= i; j++ {
+			sb.WriteString("  ")
+		}
+	}
+	sb.WriteString("leaf\n")
+	_, err := Convert([]byte(sb.String()))
+	assert.ErrorIs(t, err, ErrMaxDepth)
+}
+
+// TestStreamConvertBrokenMapping ensures the resolveMerges/toJSON error
+// path inside StreamConvert is exercised end-to-end. A YAML alias used as
+// a mapping key after merge resolution surfaces no error on its own, so
+// instead we feed a value that fails int parsing inside a custom-tagged
+// scalar.
+func TestStreamConvertBadInt(t *testing.T) {
+	// !!int tag with non-numeric value triggers strconv.ParseInt failure
+	// inside toJSON's ScalarNode branch.
+	r := bytes.NewReader([]byte("!!int notanumber\n"))
+	w := new(strings.Builder)
+	err := StreamConvert(r, w)
+	assert.Error(t, err)
 }
