@@ -5,6 +5,7 @@ package yaml2json
 
 import (
 	"bytes"
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -147,6 +148,9 @@ func TestErrors(t *testing.T) {
 	// test max depth
 	_, err := toJSON(nil, maxDepth)
 	assert.ErrorIs(t, err, ErrMaxDepth)
+	// caller passing depth past maxDepth must also be guarded
+	_, err = toJSON(nil, maxDepth+1)
+	assert.ErrorIs(t, err, ErrMaxDepth)
 }
 
 // TestConvertInvalidYAML covers the yaml.Unmarshal error path in Convert.
@@ -230,14 +234,57 @@ func TestToJSONDeepRecursion(t *testing.T) {
 	assert.ErrorIs(t, err, ErrMaxDepth)
 }
 
-// TestStreamConvertBrokenMapping ensures the resolveMerges/toJSON error
-// path inside StreamConvert is exercised end-to-end. A YAML alias used as
-// a mapping key after merge resolution surfaces no error on its own, so
-// instead we feed a value that fails int parsing inside a custom-tagged
-// scalar.
+// TestConvertLargeInt covers !!int values that exceed int64 range. ParseInt
+// alone would reject these; the uint64 fallback keeps the value intact.
+// (yaml.v4 itself tags anything beyond 2^64-1 as !!float, so the uint64
+// upper bound is the practical ceiling for this branch.)
+func TestConvertLargeInt(t *testing.T) {
+	tests := []struct {
+		name, yaml, want string
+	}{{
+		name: "fits in int64",
+		yaml: "n: 9223372036854775807\n",
+		want: `{"n":9223372036854775807}`,
+	}, {
+		name: "int64+1 needs uint64",
+		yaml: "n: 9223372036854775808\n",
+		want: `{"n":9223372036854775808}`,
+	}, {
+		name: "max uint64",
+		yaml: "n: 18446744073709551615\n",
+		want: `{"n":18446744073709551615}`,
+	}}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			out, err := Convert([]byte(tc.yaml))
+			assert.NoError(t, err)
+			assert.Equal(t, tc.want, string(out))
+		})
+	}
+}
+
+// TestToJSONOversizedInt directly exercises the final string-fallback
+// branch by handing toJSON a !!int-tagged scalar whose value exceeds even
+// uint64. yaml.v4's loader would re-tag such values as !!float, so this
+// case is only reachable when a caller constructs a node by hand.
+func TestToJSONOversizedInt(t *testing.T) {
+	node := &yaml.Node{
+		Kind:  yaml.ScalarNode,
+		Tag:   "!!int",
+		Value: "99999999999999999999999999",
+	}
+	val, err := toJSON(node, 0)
+	assert.NoError(t, err)
+	assert.Equal(t, json.Number("99999999999999999999999999"), val)
+}
+
+// TestStreamConvertBadInt feeds a malformed !!int through the full
+// pipeline. With the int64→uint64→string fallback chain in place, the
+// non-numeric value reaches json.Marshal as a json.Number whose string
+// is not a valid JSON number, so Marshal fails and the error surfaces.
 func TestStreamConvertBadInt(t *testing.T) {
-	// !!int tag with non-numeric value triggers strconv.ParseInt failure
-	// inside toJSON's ScalarNode branch.
+	// !!int tag with non-numeric value: not parseable as int or uint,
+	// and json.Number("notanumber") fails to marshal as a JSON number.
 	r := bytes.NewReader([]byte("!!int notanumber\n"))
 	w := new(strings.Builder)
 	err := StreamConvert(r, w)

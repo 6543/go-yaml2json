@@ -82,7 +82,7 @@ func resolveMerges(m *yaml.Node) (*yaml.Node, error) {
 // fmt.Sprint() with default formatting is used to convert the key to a string key.
 func toJSON(node *yaml.Node, depth uint8) (interface{}, error) {
 	// prevent loop by hardcoded limit
-	if depth == maxDepth {
+	if depth >= maxDepth {
 		return nil, ErrMaxDepth
 	}
 
@@ -104,7 +104,7 @@ func toJSON(node *yaml.Node, depth uint8) (interface{}, error) {
 		if (len(node.Content) % 2) != 0 {
 			return nil, ErrBrokenMappingNode
 		}
-		val := make(map[string]interface{}, len(node.Content)%2)
+		val := make(map[string]interface{}, len(node.Content)/2)
 		for i := len(node.Content); i > 1; i = i - 2 {
 			k, err := toJSON(node.Content[i-2], depth+1)
 			if err != nil {
@@ -123,7 +123,18 @@ func toJSON(node *yaml.Node, depth uint8) (interface{}, error) {
 		case boolTag:
 			return strconv.ParseBool(node.Value)
 		case intTag:
-			return strconv.ParseInt(node.Value, 10, 64)
+			if v, err := strconv.ParseInt(node.Value, 10, 64); err == nil {
+				return v, nil
+			}
+			// YAML !!int permits values beyond int64 (e.g. uint64 range or
+			// arbitrary precision). Try uint64 next; if that still overflows,
+			// fall back to the raw string so json.Marshal emits it as a JSON
+			// number rather than failing or silently losing precision via
+			// float64.
+			if v, err := strconv.ParseUint(node.Value, 10, 64); err == nil {
+				return v, nil
+			}
+			return json.Number(node.Value), nil
 		case floatTag:
 			return strconv.ParseFloat(node.Value, 64)
 		}
