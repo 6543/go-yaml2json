@@ -1,4 +1,4 @@
-module codeberg.org/6543/go-yaml2json
+module codeberg.org/6543/go-yaml2json/v2
 
 go 1.22
 
